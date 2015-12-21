@@ -7,6 +7,7 @@ import (
 	"github.com/codegangsta/cli"
 
 	"github.com/containerops/dockyard/cmd"
+	_ "github.com/containerops/dockyard/middleware/auth/hwtoken"
 	_ "github.com/containerops/dockyard/middleware/notifications"
 	"github.com/containerops/wrench/setting"
 )
