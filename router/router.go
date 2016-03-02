@@ -15,6 +15,7 @@ func SetRouters(m *macaron.Macaron) {
 
 		m.Get("/users", handler.GetUsersV1Handler)
 		m.Post("/users", handler.PostUsersV1Handler)
+		m.Get("/:search", handler.SearchTagsRepoListV2Handler)
 
 		m.Group("/repositories", func() {
 			m.Put("/:namespace/:repository/tags/:tag", handler.PutTagV1Handler)

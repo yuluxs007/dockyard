@@ -7,7 +7,13 @@ import (
 	"time"
 
 	"github.com/containerops/wrench/db"
+	"github.com/containerops/wrench/db/redis"
 	"github.com/containerops/wrench/setting"
+)
+
+const (
+	//Dockyard Data Index
+	GLOBAL_REPOSITORY_INDEX = "GLOBAL_REPOSITORY_INDEX"
 )
 
 type Repository struct {
@@ -42,12 +48,15 @@ func (r *Repository) Save(namespace, repository string) error {
 	if err != nil {
 		return err
 	}
-
 	r.Namespace, r.Repository = namespace, repository
 	if !exists {
 		err = db.Drv.Insert(r)
 	} else {
 		err = db.Drv.Update(r)
+	}
+
+	if _, err = redis.Client.HSet(GLOBAL_REPOSITORY_INDEX, (fmt.Sprintf("%s/%s", r.Namespace, r.Repository)), (fmt.Sprintf("REPO-%s-%s", r.Namespace, r.Repository))).Result(); err != nil {
+		return err
 	}
 
 	return err

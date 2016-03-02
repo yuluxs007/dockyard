@@ -10,8 +10,11 @@ import (
 
 	"github.com/containerops/dockyard/models"
 	"github.com/containerops/dockyard/module"
+	"github.com/containerops/wrench/db/redis"
 	"github.com/containerops/wrench/setting"
 	"github.com/containerops/wrench/utils"
+	"github.com/docker/docker/vendor/src/github.com/docker/engine-api/types/registry"
+	"strings"
 )
 
 var ManifestCtx []byte
@@ -128,4 +131,90 @@ func GetManifestsV2Handler(ctx *macaron.Context, log *logs.BeeLogger) (int, []by
 	ctx.Resp.Header().Set("Content-Length", fmt.Sprint(len(t.Manifest)))
 
 	return http.StatusOK, []byte(t.Manifest)
+}
+
+func SearchTagsRepoListV2Handler(ctx *macaron.Context, log *logs.BeeLogger) (int, []byte) {
+	uri := ctx.Req.RequestURI
+
+	r := new(models.Repository)
+	var (
+		tempname   string
+		namespace  string
+		temprepo   string
+		repository string
+		tempdate   []registry.SearchResult
+	)
+	tempname = strings.Split(uri, "?q=")[1]
+
+	if len(strings.Split(uri, "/v1/")[1]) != 9 {
+
+		if strings.Contains(tempname, "%2F") == false {
+			if strings.Contains(tempname, "%3A") == true {
+				repository = strings.Split(tempname, "%3A")[0]
+				namespace = ""
+			} else {
+				repository = tempname
+				namespace = ""
+			}
+			tempkeys, _ := redis.Client.HGetAll(models.GLOBAL_REPOSITORY_INDEX).Result()
+			for _, tempkey := range tempkeys {
+				if strings.Contains(tempkey, "REPO") == true {
+					p := strings.Split(tempkey, "-")[1]
+					q := strings.Split(tempkey, "-")[2]
+					if (strings.Contains(p, repository) == true) || (strings.Contains(q, repository) == true) {
+						if _, err := r.Get(p, q); err != nil {
+							log.Error("[REGISTRY API V2] Failed to get repository %v/%v: %v", namespace, repository, err.Error())
+
+							result, _ := json.Marshal(map[string]string{"message": "Failed to get repository"})
+							return http.StatusBadRequest, result
+						}
+						name := fmt.Sprintf("%s/%s", r.Namespace, r.Repository)
+						datamap := registry.SearchResult{StarCount: 1, IsOfficial: true, Name: name, IsAutomated: true, IsTrusted: true, Description: "nul"}
+						tempdate = append(tempdate, datamap)
+					}
+				}
+			}
+			data := registry.SearchResults{Query: "search", NumResults: 1, Results: tempdate}
+			result, _ := json.Marshal(data)
+			return http.StatusOK, result
+
+		} else {
+			if strings.Index(uri, "%2F") != 13 {
+				namespace = strings.Split(tempname, "%2F")[0]
+				temprepo = strings.Split(uri, "%2F")[1]
+
+				if strings.Contains(temprepo, "%3A") == false {
+					repository = temprepo
+				} else {
+					repository = strings.Split(temprepo, "%3A")[0]
+				}
+
+				tempkeys, _ := redis.Client.HGetAll(models.GLOBAL_REPOSITORY_INDEX).Result()
+				for _, tempkey := range tempkeys {
+					if strings.Contains(tempkey, "REPO") == true && len(uri) != 9 {
+						p := strings.Split(tempkey, "-")[1]
+						q := strings.Split(tempkey, "-")[2]
+						if (strings.Contains(p, namespace) == true) && (strings.Contains(q, repository) == true) {
+							if _, err := r.Get(p, q); err != nil {
+								log.Error("[REGISTRY API V2] Failed to get repository %v/%v: %v", namespace, repository, err.Error())
+
+								result, _ := json.Marshal(map[string]string{"message": "Failed to get repository"})
+								return http.StatusBadRequest, result
+							}
+
+							name := fmt.Sprintf("%s/%s", r.Namespace, r.Repository)
+							datamap := []registry.SearchResult{{StarCount: 1, IsOfficial: true, Name: name, IsAutomated: true, IsTrusted: true, Description: "nul"}}
+							data := registry.SearchResults{Query: "search", NumResults: 1, Results: datamap}
+
+							result, _ := json.Marshal(data)
+							return http.StatusOK, result
+						}
+					}
+				}
+			}
+		}
+	}
+	data := registry.SearchResults{Query: "search", NumResults: 0, Results: tempdate}
+	result, _ := json.Marshal(data)
+	return http.StatusOK, result
 }
