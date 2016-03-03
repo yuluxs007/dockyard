@@ -147,7 +147,6 @@ func SearchTagsRepoListV2Handler(ctx *macaron.Context, log *logs.BeeLogger) (int
 	tempname = strings.Split(uri, "?q=")[1]
 
 	if len(strings.Split(uri, "/v1/")[1]) != 9 {
-
 		if strings.Contains(tempname, "%2F") == false {
 			if strings.Contains(tempname, "%3A") == true {
 				repository = strings.Split(tempname, "%3A")[0]
@@ -201,16 +200,15 @@ func SearchTagsRepoListV2Handler(ctx *macaron.Context, log *logs.BeeLogger) (int
 								result, _ := json.Marshal(map[string]string{"message": "Failed to get repository"})
 								return http.StatusBadRequest, result
 							}
-
 							name := fmt.Sprintf("%s/%s", r.Namespace, r.Repository)
-							datamap := []registry.SearchResult{{StarCount: 1, IsOfficial: true, Name: name, IsAutomated: true, IsTrusted: true, Description: "nul"}}
-							data := registry.SearchResults{Query: "search", NumResults: 1, Results: datamap}
-
-							result, _ := json.Marshal(data)
-							return http.StatusOK, result
+							datamap := registry.SearchResult{StarCount: 1, IsOfficial: true, Name: name, IsAutomated: true, IsTrusted: true, Description: "nul"}
+							tempdate = append(tempdate, datamap)
 						}
 					}
 				}
+				data := registry.SearchResults{Query: "search", NumResults: 1, Results: tempdate}
+				result, _ := json.Marshal(data)
+				return http.StatusOK, result
 			}
 		}
 	}
